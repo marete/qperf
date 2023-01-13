@@ -1,15 +1,20 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"crypto/tls"
 	"flag"
+	"fmt"
 	"io"
 	"net"
 	"os"
+	"path/filepath"
 
 	"github.com/golang/glog"
 	"github.com/lucas-clemente/quic-go"
+	"github.com/lucas-clemente/quic-go/logging"
+	"github.com/lucas-clemente/quic-go/qlog"
 )
 
 var (
@@ -19,6 +24,7 @@ var (
 	serve    = flag.Bool("s", false, "run as a server")
 	client   = flag.String("c", "localhost:32850", "run as a client to specified remote")
 	insecure = flag.Bool("insecure", false, "don't verify TLS certificate details")
+	qlogDir  = flag.String("qlog-dest-dir", "", "activate qlog writing and write the qlogs in this directory")
 )
 
 var data [1 << 16]byte
@@ -26,6 +32,26 @@ var data [1 << 16]byte
 const alpnNextProto = "quic-perf-test"
 
 const totalData = 10 << 30
+
+type bufferedWriteCloser struct {
+	*bufio.Writer
+	io.Closer
+}
+
+// NewBufferedWriteCloser creates an io.WriteCloser from a bufio.Writer and an io.Closer
+func newBufferedWriteCloser(writer *bufio.Writer, closer io.Closer) io.WriteCloser {
+	return &bufferedWriteCloser{
+		Writer: writer,
+		Closer: closer,
+	}
+}
+
+func (h bufferedWriteCloser) Close() error {
+	if err := h.Writer.Flush(); err != nil {
+		return err
+	}
+	return h.Closer.Close()
+}
 
 func serverMain(ctx context.Context) {
 	rf, err := os.Open("/dev/urandom")
@@ -103,7 +129,25 @@ func clientMain(ctx context.Context) {
 		ServerName: host,
 	}
 
-	conn, err := quic.DialAddr(*client, tlsConfig, nil)
+	var qconf quic.Config
+	qconf.EnableDatagrams = true
+
+	if *qlogDir != "" {
+		glog.Infof("Qlog logging enabled, will write qlog files to this dir: %s", *qlogDir)
+		qconf.Tracer = qlog.NewTracer(func(_ logging.Perspective, connID []byte) io.WriteCloser {
+			baseName := fmt.Sprintf("client_%x.qlog", connID)
+			fname := filepath.Join(*qlogDir, baseName)
+			f, err := os.Create(fname)
+			if err != nil {
+				glog.Fatalf("Qlog: Failed to create file: %s: %v", fname, err)
+			}
+			glog.Infof("Created new qlog file: %s", fname)
+			return newBufferedWriteCloser(bufio.NewWriter(f), f)
+		})
+
+	}
+
+	conn, err := quic.DialAddr(*client, tlsConfig, &qconf)
 	if err != nil {
 		glog.Exitf("Fatal error establishing connection: %v", err)
 	}
