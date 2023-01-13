@@ -13,11 +13,12 @@ import (
 )
 
 var (
-	key    = flag.String("key", "", "path to the tls private key file")
-	cert   = flag.String("cert", "", "path to the tls certificate file")
-	addr   = flag.String("addr", ":32850", "listen on this address")
-	serve  = flag.Bool("s", false, "run as a server")
-	client = flag.String("c", "localhost:32850", "run as a client to specified remote")
+	key      = flag.String("key", "", "path to the tls private key file")
+	cert     = flag.String("cert", "", "path to the tls certificate file")
+	addr     = flag.String("addr", ":32850", "listen on this address")
+	serve    = flag.Bool("s", false, "run as a server")
+	client   = flag.String("c", "localhost:32850", "run as a client to specified remote")
+	insecure = flag.Bool("insecure", false, "don't verify TLS certificate details")
 )
 
 var data [1 << 16]byte
@@ -43,8 +44,9 @@ func serverMain(ctx context.Context) {
 	}
 
 	c := &tls.Config{
-		Certificates: []tls.Certificate{cert},
-		NextProtos:   []string{alpnNextProto},
+		Certificates:       []tls.Certificate{cert},
+		NextProtos:         []string{alpnNextProto},
+		InsecureSkipVerify: *insecure,
 	}
 
 	l, err := quic.ListenAddr(*addr, c, nil)
