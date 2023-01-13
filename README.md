@@ -22,10 +22,15 @@ Both the client and server must set the TLS Next Protocol value to: `quic-perf-t
 
 `go install -v github.com/marete/qperf@latest`
 
-## On the server
+## Running
+
+### On the server
 
 `qperf -s -key ~/example.com.key -cert ~/example.com.crt -alsologtostderr`
 
-## On the client
+### On the client
 
 `qperf -c example.com:32850`
+
+You can skip validation of self-generated TLS certificates by invoking
+the client with the `-insecure` flag.
