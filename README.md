@@ -1,12 +1,18 @@
 # qperf
 
-Benchmark throughput achieved by the
+Benchmark QUIC bulk transfer throughput. Currently you can benchmark
+the throughput achieved by the
 [quic-go](https://github.com/lucas-clemente/quic-go) implementation of
 the QUIC protocol in your environment.
 
 ## Protocol
 
-On receiving a connection, the server opens a *uni*directional **stream** to the client and writes *n* bytes of data to it. The client must accept the unidirectional stream that the server opens.
+On receiving a connection, the server opens a *uni*directional
+**stream** to the client and writes *n* bytes of data to it. The
+client must accept the unidirectional stream that the server
+opens. The data written from the server to the client is made up of
+random bytes that the client should discard as efficiently as
+possible.
 
 ### Application Level Next Protocol Negotiation (ALPN)
 
