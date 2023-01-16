@@ -158,7 +158,7 @@ func clientMain(ctx context.Context) {
 		glog.Errorf("Fatal error opening stream to %s: %v", conn.RemoteAddr(), err)
 	}
 
-	var discard [32 << 10]byte
+	var discard [8 << 10]byte
 	n := uint64(0)
 	start := time.Now()
 	for {
