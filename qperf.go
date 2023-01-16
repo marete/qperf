@@ -158,10 +158,18 @@ func clientMain(ctx context.Context) {
 		glog.Errorf("Fatal error opening stream to %s: %v", conn.RemoteAddr(), err)
 	}
 
+	var discard [32 << 10]byte
+	n := uint64(0)
 	start := time.Now()
-	n, err := io.Copy(io.Discard, s)
-	if err != nil {
-		glog.Exitf("Fatal error reading from stream: %v", err)
+	for {
+		i, err := s.Read(discard[:])
+		n += uint64(i)
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			glog.Exitf("Fatal error reading from stream: %v", err)
+		}
 	}
 	dur := time.Since(start)
 	durS := float64(dur) / 1e9
