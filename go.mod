@@ -5,6 +5,7 @@ go 1.19
 require (
 	github.com/golang/glog v1.0.0
 	github.com/lucas-clemente/quic-go v0.31.1
+	golang.org/x/time v0.0.0-20181108054448-85acf8d2951c
 )
 
 require (

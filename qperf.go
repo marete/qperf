@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"crypto/tls"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -16,6 +17,7 @@ import (
 	"github.com/lucas-clemente/quic-go"
 	"github.com/lucas-clemente/quic-go/logging"
 	"github.com/lucas-clemente/quic-go/qlog"
+	"golang.org/x/time/rate"
 )
 
 var (
@@ -26,6 +28,7 @@ var (
 	client   = flag.String("c", "localhost:32850", "run as a client to specified remote")
 	insecure = flag.Bool("insecure", false, "don't verify TLS certificate details")
 	qlogDir  = flag.String("qlog-dest-dir", "", "activate qlog writing and write the qlogs in this directory")
+	dLimit   = flag.String("b", "", "limit download bitrate to this bits/sec (a [KMG] suffix is allowed e.g. 1G to limit download speed to 1 Gigabits/s")
 )
 
 var data [1 << 16]byte
@@ -33,6 +36,8 @@ var data [1 << 16]byte
 const alpnNextProto = "quic-perf-test"
 
 const totalData = 10 << 30
+
+const readChunkSize = 8 << 10
 
 type bufferedWriteCloser struct {
 	*bufio.Writer
@@ -52,6 +57,40 @@ func (h bufferedWriteCloser) Close() error {
 		return err
 	}
 	return h.Closer.Close()
+}
+
+func limiterFromString(l string) (*rate.Limiter, error) {
+	if l == "" {
+		return nil, nil
+	}
+
+	var limit float64
+	_, err := fmt.Sscanf(l, "%f", &limit)
+	if err == nil {
+		return rate.NewLimiter(rate.Limit(limit/8), readChunkSize), nil
+	}
+
+	_, err = fmt.Sscanf(l, "%fK", &limit)
+	if err == nil {
+		return rate.NewLimiter(rate.Limit(1e3*limit/8), readChunkSize), nil
+	}
+
+	_, err = fmt.Sscanf(l, "%fM", &limit)
+	if err == nil {
+		return rate.NewLimiter(rate.Limit(1e6*limit/8), readChunkSize), nil
+	}
+
+	_, err = fmt.Sscanf(l, "%fG", &limit)
+	if err == nil {
+		return rate.NewLimiter(rate.Limit(1e9*limit/8), readChunkSize), nil
+	}
+
+	_, err = fmt.Sscanf(l, "%fT", &limit)
+	if err == nil {
+		return rate.NewLimiter(rate.Limit(1e12*limit/8), readChunkSize), nil
+	}
+
+	return nil, errors.New("faild to parse download limit")
 }
 
 func serverMain(ctx context.Context) {
@@ -158,10 +197,17 @@ func clientMain(ctx context.Context) {
 		glog.Errorf("Fatal error opening stream to %s: %v", conn.RemoteAddr(), err)
 	}
 
-	var discard [8 << 10]byte
+	limiter := rate.NewLimiter(rate.Inf, 0)
+
+	var discard [readChunkSize]byte
 	n := uint64(0)
 	start := time.Now()
 	for {
+		err = limiter.WaitN(ctx, len(discard))
+		if err != nil {
+			glog.Exitf("Fatal error waiting for tokens from limter: %v", err)
+		}
+
 		i, err := s.Read(discard[:])
 		n += uint64(i)
 		if err != nil {
