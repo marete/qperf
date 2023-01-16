@@ -11,6 +11,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	"github.com/golang/glog"
@@ -65,29 +66,29 @@ func limiterFromString(l string) (*rate.Limiter, error) {
 	}
 
 	var limit float64
-	_, err := fmt.Sscanf(l, "%f", &limit)
+	limit, err := strconv.ParseFloat(l, 64)
 	if err == nil {
-		return rate.NewLimiter(rate.Limit(limit/8), readChunkSize), nil
+		return rate.NewLimiter(rate.Limit(1.25*limit/8), readChunkSize), nil
 	}
 
 	_, err = fmt.Sscanf(l, "%fK", &limit)
 	if err == nil {
-		return rate.NewLimiter(rate.Limit(1e3*limit/8), readChunkSize), nil
+		return rate.NewLimiter(rate.Limit(1.25*1e3*limit/8), readChunkSize), nil
 	}
 
 	_, err = fmt.Sscanf(l, "%fM", &limit)
 	if err == nil {
-		return rate.NewLimiter(rate.Limit(1e6*limit/8), readChunkSize), nil
+		return rate.NewLimiter(rate.Limit(1.25*1e6*limit/8), readChunkSize), nil
 	}
 
 	_, err = fmt.Sscanf(l, "%fG", &limit)
 	if err == nil {
-		return rate.NewLimiter(rate.Limit(1e9*limit/8), readChunkSize), nil
+		return rate.NewLimiter(rate.Limit(1.25*1e9*limit/8), readChunkSize), nil
 	}
 
 	_, err = fmt.Sscanf(l, "%fT", &limit)
 	if err == nil {
-		return rate.NewLimiter(rate.Limit(1e12*limit/8), readChunkSize), nil
+		return rate.NewLimiter(rate.Limit(1.25*1e12*limit/8), readChunkSize), nil
 	}
 
 	return nil, errors.New("faild to parse download limit")
@@ -198,6 +199,16 @@ func clientMain(ctx context.Context) {
 	}
 
 	limiter := rate.NewLimiter(rate.Inf, 0)
+	userLimiter, err := limiterFromString(*dLimit)
+	if err != nil {
+		glog.Exitf("Fatal error parsing the `-b' option. Please invoke command with --help")
+	}
+	if userLimiter != nil {
+		glog.Infof("limiter: limit=%f, burst=%d", userLimiter.Limit(), userLimiter.Burst())
+		limiter = userLimiter
+	}
+
+	glog.Infof("limiter: limit=%f, burst=%d", limiter.Limit(), limiter.Burst())
 
 	var discard [readChunkSize]byte
 	n := uint64(0)
