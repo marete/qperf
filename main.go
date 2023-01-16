@@ -10,6 +10,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/golang/glog"
 	"github.com/lucas-clemente/quic-go"
@@ -157,10 +158,18 @@ func clientMain(ctx context.Context) {
 		glog.Errorf("Fatal error opening stream to %s: %v", conn.RemoteAddr(), err)
 	}
 
-	_, err = io.Copy(io.Discard, s)
+	start := time.Now()
+	n, err := io.Copy(io.Discard, s)
 	if err != nil {
 		glog.Exitf("Fatal error reading from stream: %v", err)
 	}
+	dur := time.Since(start)
+	durS := float64(dur) / 1e9
+	fmt.Printf("Received: %d bytes in %.3f seconds (%.3f Kbits/s)\n",
+		n,
+		durS,
+		((float64(n)/1e3)*8)/float64(durS))
+
 }
 
 func main() {
