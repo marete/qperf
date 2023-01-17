@@ -222,7 +222,7 @@ func clientMain(ctx context.Context) {
 	for {
 		err = limiter.WaitN(readCtx, len(discard))
 		if err != nil {
-			if err == context.DeadlineExceeded {
+			if err == context.DeadlineExceeded || errors.Is(err, io.EOF) {
 				break
 			}
 			glog.Errorf("Error waiting for tokens from limter: %v", err)
