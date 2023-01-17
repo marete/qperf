@@ -146,7 +146,7 @@ func serverMain(ctx context.Context) {
 				return
 			}
 			defer s.Close()
-			for nBytes <= totalData {
+			for {
 				n, err := s.Write(data[:])
 				if err != nil {
 					glog.Errorf("Error writing to client: %s: %v", conn.RemoteAddr(),
