@@ -22,14 +22,15 @@ import (
 )
 
 var (
-	key      = flag.String("key", "", "path to the tls private key file")
-	cert     = flag.String("cert", "", "path to the tls certificate file")
-	addr     = flag.String("addr", ":32850", "listen on this address")
-	serve    = flag.Bool("s", false, "run as a server")
-	client   = flag.String("c", "localhost:32850", "run as a client to specified remote")
-	insecure = flag.Bool("insecure", false, "don't verify TLS certificate details")
-	qlogDir  = flag.String("qlog-dest-dir", "", "activate qlog writing and write the qlogs in this directory")
-	dLimit   = flag.String("b", "", "limit download bitrate to this bits/sec (a [KMG] suffix is allowed e.g. 1G to limit download speed to 1 Gigabits/s")
+	key            = flag.String("key", "", "path to the tls private key file")
+	cert           = flag.String("cert", "", "path to the tls certificate file")
+	addr           = flag.String("addr", ":32850", "listen on this address")
+	serve          = flag.Bool("s", false, "run as a server")
+	client         = flag.String("c", "localhost:32850", "run as a client to specified remote")
+	insecure       = flag.Bool("insecure", false, "don't verify TLS certificate details")
+	qlogDir        = flag.String("qlog-dest-dir", "", "activate qlog writing and write the qlogs in this directory")
+	dLimit         = flag.String("b", "", "limit download bitrate to this bits/sec (a [KMG] suffix is allowed e.g. 1G to limit download speed to 1 Gigabits/s")
+	durationInSecs = flag.Int64("seconds", 30, "run the test for this number of seconds.")
 )
 
 var data [1 << 16]byte
@@ -209,12 +210,19 @@ func clientMain(ctx context.Context) {
 
 	glog.Infof("limiter: limit=%f, burst=%d", limiter.Limit(), limiter.Burst())
 
+	// Setup the test deadline
+	readCtx, cancelRead := context.WithDeadline(ctx, time.Now().Add(time.Duration(*durationInSecs)*time.Second))
+	defer cancelRead()
+
 	var discard [readChunkSize]byte
 	n := uint64(0)
 	start := time.Now()
 	for {
-		err = limiter.WaitN(ctx, len(discard))
+		err = limiter.WaitN(readCtx, len(discard))
 		if err != nil {
+			if err == context.DeadlineExceeded {
+				break
+			}
 			glog.Errorf("Error waiting for tokens from limter: %v", err)
 			break
 		}
