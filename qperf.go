@@ -193,11 +193,13 @@ func clientMain(ctx context.Context) {
 	if err != nil {
 		glog.Exitf("Fatal error establishing connection: %v", err)
 	}
+	defer conn.CloseWithError(quic.ApplicationErrorCode(quic.NoError), "done")
 
 	s, err := conn.AcceptUniStream(ctx)
 	if err != nil {
-		glog.Errorf("Fatal error opening stream to %s: %v", conn.RemoteAddr(), err)
+		glog.Errorf("Fatal error accepting unidirectional stream from %s: %v", conn.RemoteAddr(), err)
 	}
+	defer s.CancelRead(quic.StreamErrorCode(quic.NoError))
 
 	limiter := rate.NewLimiter(rate.Inf, 0)
 	userLimiter, err := limiterFromString(*dLimit)
