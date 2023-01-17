@@ -31,6 +31,11 @@ Both the client and server must set the TLS Next Protocol value to: `quic-perf-t
 ### On the client
 
 `qperf -c example.com:32850`
+`qperf -c example.com:32850 -seconds 600`
 
 You can skip validation of self-generated TLS certificates by invoking
 the client with the `-insecure` flag.
+
+By default the client will receive traffic for 30 seconds before
+closing the connection and reporting statistics. This can be changed
+with the `-seconds` flag.
