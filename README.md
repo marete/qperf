@@ -14,6 +14,11 @@ opens. The data written from the server to the client is made up of
 random bytes that the client should discard as efficiently as
 possible.
 
+The reading peer can
+[reset](https://www.rfc-editor.org/rfc/rfc9000.html#frame-reset-stream)
+the unidirectional stream without signaling an error by sending
+application error code 0 with the reset stream frame.
+
 ### Application Level Next Protocol Negotiation (ALPN)
 
 Both the client and server must set the TLS Next Protocol value to: `quic-perf-test`.
