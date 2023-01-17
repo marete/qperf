@@ -204,7 +204,6 @@ func clientMain(ctx context.Context) {
 		glog.Exitf("Fatal error parsing the `-b' option. Please invoke command with --help")
 	}
 	if userLimiter != nil {
-		glog.Infof("limiter: limit=%f, burst=%d", userLimiter.Limit(), userLimiter.Burst())
 		limiter = userLimiter
 	}
 
@@ -216,7 +215,8 @@ func clientMain(ctx context.Context) {
 	for {
 		err = limiter.WaitN(ctx, len(discard))
 		if err != nil {
-			glog.Exitf("Fatal error waiting for tokens from limter: %v", err)
+			glog.Errorf("Error waiting for tokens from limter: %v", err)
+			break
 		}
 
 		i, err := s.Read(discard[:])
@@ -225,7 +225,8 @@ func clientMain(ctx context.Context) {
 			if err == io.EOF {
 				break
 			}
-			glog.Exitf("Fatal error reading from stream: %v", err)
+			glog.Errorf("Error reading from stream: %v", err)
+			break
 		}
 	}
 	dur := time.Since(start)
