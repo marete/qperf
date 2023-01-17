@@ -146,9 +146,15 @@ func serverMain(ctx context.Context) {
 				return
 			}
 			defer s.Close()
+
 			for {
 				n, err := s.Write(data[:])
 				if err != nil {
+					if e, ok := err.(*quic.ApplicationError); ok {
+						if e.ErrorCode == quic.ApplicationErrorCode(0) {
+							return
+						}
+					}
 					glog.Errorf("Error writing to client: %s: %v", conn.RemoteAddr(),
 						err)
 					return
