@@ -192,7 +192,7 @@ func clientMain(ctx context.Context) {
 
 	}
 
-	conn, err := quic.DialAddr(*client, tlsConfig, &qconf)
+	conn, err := quic.DialAddrContext(ctx, *client, tlsConfig, &qconf)
 	if err != nil {
 		glog.Exitf("Fatal error establishing connection: %v", err)
 	}
