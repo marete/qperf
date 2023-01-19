@@ -29,15 +29,12 @@ var (
 	client         = flag.String("c", "localhost:32850", "run as a client to specified remote")
 	insecure       = flag.Bool("insecure", false, "don't verify TLS certificate details")
 	qlogDir        = flag.String("qlog-dest-dir", "", "activate qlog writing and write the qlogs in this directory")
-	dLimit         = flag.String("b", "", "limit download bitrate to this bits/sec (a [KMG] suffix is allowed e.g. 1G to limit download speed to 1 Gigabits/s")
 	durationInSecs = flag.Int64("seconds", 30, "run the test for this number of seconds.")
 )
 
 var data [1 << 16]byte
 
 const alpnNextProto = "quic-perf-test"
-
-const totalData = 10 << 30
 
 const readChunkSize = 8 << 10
 
@@ -203,44 +200,32 @@ func clientMain(ctx context.Context) {
 
 	s, err := conn.AcceptUniStream(ctx)
 	if err != nil {
-		glog.Errorf("Fatal error accepting unidirectional stream from %s: %v", conn.RemoteAddr(), err)
+		glog.Exitf("Fatal error accepting unidirectional stream from %s: %v", conn.RemoteAddr(), err)
 	}
 	defer s.CancelRead(quic.StreamErrorCode(quic.NoError))
 
-	limiter := rate.NewLimiter(rate.Inf, 0)
-	userLimiter, err := limiterFromString(*dLimit)
+	err = s.SetReadDeadline(time.Now().Add(time.Duration(*durationInSecs) * time.Second))
 	if err != nil {
-		glog.Exitf("Fatal error parsing the `-b' option. Please invoke command with --help")
+		glog.Exitf("Fatal error setting a read deadline on unidirectional stream: %v", err)
 	}
-	if userLimiter != nil {
-		limiter = userLimiter
-	}
-
-	glog.Infof("limiter: limit=%f, burst=%d", limiter.Limit(), limiter.Burst())
-
-	// Setup the test deadline
-	readCtx, cancelRead := context.WithDeadline(ctx, time.Now().Add(time.Duration(*durationInSecs)*time.Second))
-	defer cancelRead()
 
 	var discard [readChunkSize]byte
 	n := uint64(0)
 	start := time.Now()
 	for {
-		err = limiter.WaitN(readCtx, len(discard))
-		if err != nil {
-			if err == context.DeadlineExceeded || errors.Is(err, io.EOF) {
-				break
-			}
-			glog.Errorf("Error waiting for tokens from limter: %v", err)
-			break
-		}
-
 		i, err := s.Read(discard[:])
 		n += uint64(i)
 		if err != nil {
 			if err == io.EOF {
 				break
 			}
+
+			if e, ok := err.(net.Error); ok {
+				if e.Timeout() {
+					break
+				}
+			}
+
 			glog.Errorf("Error reading from stream: %v", err)
 			break
 		}
