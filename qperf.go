@@ -209,10 +209,20 @@ func clientMain(ctx context.Context) {
 		glog.Exitf("Fatal error setting a read deadline on unidirectional stream: %v", err)
 	}
 
+	doneCh := ctx.Done()
+
 	var discard [readChunkSize]byte
 	n := uint64(0)
 	start := time.Now()
 	for {
+		if doneCh != nil {
+			select {
+			case <-doneCh:
+				return
+			default:
+			}
+		}
+
 		i, err := s.Read(discard[:])
 		n += uint64(i)
 		if err != nil {
