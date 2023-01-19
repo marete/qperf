@@ -217,6 +217,7 @@ func main() {
 
 	if *serve {
 		serverMain(context.Background())
+		return
 	}
 
 	clientMain(context.Background())
