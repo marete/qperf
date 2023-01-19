@@ -4,21 +4,18 @@ import (
 	"bufio"
 	"context"
 	"crypto/tls"
-	"errors"
 	"flag"
 	"fmt"
 	"io"
 	"net"
 	"os"
 	"path/filepath"
-	"strconv"
 	"time"
 
 	"github.com/golang/glog"
 	"github.com/lucas-clemente/quic-go"
 	"github.com/lucas-clemente/quic-go/logging"
 	"github.com/lucas-clemente/quic-go/qlog"
-	"golang.org/x/time/rate"
 )
 
 var (
@@ -56,40 +53,6 @@ func (h bufferedWriteCloser) Close() error {
 		return err
 	}
 	return h.Closer.Close()
-}
-
-func limiterFromString(l string) (*rate.Limiter, error) {
-	if l == "" {
-		return nil, nil
-	}
-
-	var limit float64
-	limit, err := strconv.ParseFloat(l, 64)
-	if err == nil {
-		return rate.NewLimiter(rate.Limit(1.25*limit/8), readChunkSize), nil
-	}
-
-	_, err = fmt.Sscanf(l, "%fK", &limit)
-	if err == nil {
-		return rate.NewLimiter(rate.Limit(1.25*1e3*limit/8), readChunkSize), nil
-	}
-
-	_, err = fmt.Sscanf(l, "%fM", &limit)
-	if err == nil {
-		return rate.NewLimiter(rate.Limit(1.25*1e6*limit/8), readChunkSize), nil
-	}
-
-	_, err = fmt.Sscanf(l, "%fG", &limit)
-	if err == nil {
-		return rate.NewLimiter(rate.Limit(1.25*1e9*limit/8), readChunkSize), nil
-	}
-
-	_, err = fmt.Sscanf(l, "%fT", &limit)
-	if err == nil {
-		return rate.NewLimiter(rate.Limit(1.25*1e12*limit/8), readChunkSize), nil
-	}
-
-	return nil, errors.New("faild to parse download limit")
 }
 
 func serverMain(ctx context.Context) {
