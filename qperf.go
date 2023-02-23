@@ -2,11 +2,14 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"crypto/tls"
+	"encoding/binary"
 	"flag"
 	"fmt"
 	"io"
+	"math/rand"
 	"net"
 	"os"
 	"path/filepath"
@@ -56,15 +59,14 @@ func (h bufferedWriteCloser) Close() error {
 }
 
 func serverMain(ctx context.Context) {
-	rf, err := os.Open("/dev/urandom")
-	if err != nil {
-		glog.Exitf("Fatal error opening source of random data: %v", err)
+	buf := new(bytes.Buffer)
+	for i := 1; i <= len(data)/8; i++ {
+		err := binary.Write(buf, binary.LittleEndian, rand.Int63())
+		if err != nil {
+			glog.Exitf("Fatal error generating random data: %v", err)
+		}
 	}
-	_, err = io.ReadFull(rf, data[:])
-	if err != nil {
-		glog.Exitf("Couldn't read all the random bytes we wanted: %v", err)
-	}
-	rf.Close()
+	copy(data[:], buf.Bytes())
 
 	cert, err := tls.LoadX509KeyPair(*cert, *key)
 	if err != nil {
